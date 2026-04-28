@@ -18,7 +18,23 @@ const storageRoutes = require('./routes/storage');
 const app = express();
 
 // Middleware
-app.use(cors());
+const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:4173',
+    process.env.CLIENT_URL,  // set on Render: your Vercel URL
+].filter(Boolean);
+
+app.use(cors({
+    origin: (origin, cb) => {
+        // allow requests with no origin (mobile apps, curl, etc.)
+        if (!origin || allowedOrigins.some(o => origin.startsWith(o))) {
+            cb(null, true);
+        } else {
+            cb(new Error(`CORS blocked: ${origin}`));
+        }
+    },
+    credentials: true,
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
