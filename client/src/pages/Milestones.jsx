@@ -8,7 +8,32 @@ export default function Milestones() {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [projects, setProjects] = useState([]);
-    const [form, setForm] = useState({ project: '', title: '', description: '', milestoneNumber: 1, amount: '' });
+    const [form, setForm] = useState({ 
+        project: '', title: '', description: '', milestoneNumber: 1, amount: '',
+        coordinates: { lat: null, lng: null }
+    });
+    const [gpsLoading, setGpsLoading] = useState(false);
+
+    const captureGPS = () => {
+        if (!navigator.geolocation) {
+            alert('Geolocation is not supported by your browser');
+            return;
+        }
+        setGpsLoading(true);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                setForm({
+                    ...form,
+                    coordinates: { lat: pos.coords.latitude, lng: pos.coords.longitude }
+                });
+                setGpsLoading(false);
+            },
+            (err) => {
+                alert('Unable to retrieve location: ' + err.message);
+                setGpsLoading(false);
+            }
+        );
+    };
 
     useEffect(() => { loadData(); }, []);
 
@@ -143,7 +168,17 @@ export default function Milestones() {
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Amount (₹)</label>
-                                <input className="form-input" type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required />
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <input className="form-input" type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required />
+                                    <button type="button" className={`btn ${form.coordinates.lat ? 'btn-success' : 'btn-outline'}`} onClick={captureGPS} disabled={gpsLoading} style={{ whiteSpace: 'nowrap' }}>
+                                        {gpsLoading ? '...' : form.coordinates.lat ? '📍 Proof Captured' : '📸 GPS Proof'}
+                                    </button>
+                                </div>
+                                {form.coordinates.lat && (
+                                    <div style={{ fontSize: '11px', color: 'var(--accent-green)', marginTop: '4px' }}>
+                                        Verified Location: {form.coordinates.lat.toFixed(6)}, {form.coordinates.lng.toFixed(6)}
+                                    </div>
+                                )}
                             </div>
                             <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
                                 <button type="submit" className="btn btn-primary">Submit</button>

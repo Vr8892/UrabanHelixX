@@ -2,7 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -78,7 +78,7 @@ router.get('/me', protect, async (req, res) => {
 });
 
 // GET /api/auth/users  — list all users (admin)
-router.get('/users', protect, async (req, res) => {
+router.get('/users', protect, authorize('admin'), async (req, res) => {
     try {
         const { role } = req.query;
         const filter = {};

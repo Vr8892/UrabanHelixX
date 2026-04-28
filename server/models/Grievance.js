@@ -22,6 +22,10 @@ const grievanceSchema = new mongoose.Schema({
         resolvedAt: { type: Date, default: null },
         remarks: { type: String, default: '' },
     },
+    coordinates: {
+        lat: { type: Number, default: null },
+        lng: { type: Number, default: null },
+    },
     imageUrl: String,
 }, { timestamps: true });
 

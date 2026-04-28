@@ -46,6 +46,7 @@ router.post('/', protect, authorize('contractor', 'admin'), async (req, res) => 
             dueDate,
             submittedBy: req.user._id,
             status: 'submitted',
+            coordinates: typeof req.body.coordinates === 'string' ? JSON.parse(req.body.coordinates) : req.body.coordinates,
         });
 
         // Hash chain record

@@ -10,6 +10,9 @@ import Funds from './pages/Funds';
 import Grievances from './pages/Grievances';
 import Audit from './pages/Audit';
 import Analytics from './pages/Analytics';
+import Users from './pages/Users';
+import Documents from './pages/Documents';
+import PublicProject from './pages/PublicProject';
 import './index.css';
 
 function ProtectedRoute({ children }) {
@@ -39,7 +42,10 @@ function AppRoutes() {
                 <Route path="grievances" element={<Grievances />} />
                 <Route path="audit" element={<Audit />} />
                 <Route path="analytics" element={<Analytics />} />
+                <Route path="users" element={<Users />} />
+                <Route path="documents" element={<Documents />} />
             </Route>
+            <Route path="/public/project/:id" element={<PublicProject />} />
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     );

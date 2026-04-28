@@ -89,4 +89,14 @@ export const auditAPI = {
     getAnalytics: () => api.get('/audit/analytics'),
 };
 
+// Public (no auth) — citizen-facing endpoints
+const publicAxios = axios.create({
+    baseURL: API_BASE,
+    headers: { 'Content-Type': 'application/json' },
+});
+
+export const publicAPI = {
+    getProject: (id) => publicAxios.get(`/projects/public/${id}`),
+};
+
 export default api;

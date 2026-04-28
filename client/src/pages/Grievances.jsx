@@ -8,8 +8,33 @@ export default function Grievances() {
     const [grievances, setGrievances] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
-    const [form, setForm] = useState({ project: '', title: '', description: '', category: 'other' });
+    const [form, setForm] = useState({ 
+        project: '', title: '', description: '', category: 'other',
+        coordinates: { lat: null, lng: null }
+    });
     const [file, setFile] = useState(null);
+    const [gpsLoading, setGpsLoading] = useState(false);
+
+    const captureGPS = () => {
+        if (!navigator.geolocation) {
+            alert('Geolocation is not supported by your browser');
+            return;
+        }
+        setGpsLoading(true);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                setForm({
+                    ...form,
+                    coordinates: { lat: pos.coords.latitude, lng: pos.coords.longitude }
+                });
+                setGpsLoading(false);
+            },
+            (err) => {
+                alert('Unable to retrieve location: ' + err.message);
+                setGpsLoading(false);
+            }
+        );
+    };
 
     useEffect(() => { loadData(); }, []);
 
@@ -45,7 +70,13 @@ export default function Grievances() {
         e.preventDefault();
         try {
             const formData = new FormData();
-            Object.keys(form).forEach(key => formData.append(key, form[key]));
+            Object.keys(form).forEach(key => {
+                if (typeof form[key] === 'object') {
+                    formData.append(key, JSON.stringify(form[key]));
+                } else {
+                    formData.append(key, form[key]);
+                }
+            });
             if (file) formData.append('image', file);
 
             if (form._id) {
@@ -54,7 +85,7 @@ export default function Grievances() {
                 await grievanceAPI.create(formData);
             }
             setShowModal(false);
-            setForm({ project: '', title: '', description: '', category: 'other' });
+            setForm({ project: '', title: '', description: '', category: 'other', coordinates: { lat: null, lng: null } });
             setFile(null);
             loadData();
         } catch (err) { alert(err.response?.data?.message || 'Error'); }
@@ -84,6 +115,9 @@ export default function Grievances() {
                                 <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: 1.5, marginBottom: '8px' }}>{g.description}</p>
                                 <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                                     Project: <strong style={{ color: 'var(--text-secondary)' }}>{g.project?.title || '—'}</strong> • Filed by: {g.citizen?.name} • {new Date(g.createdAt).toLocaleDateString()}
+                                    {g.coordinates?.lat && (
+                                        <span style={{ color: 'var(--accent-green)', marginLeft: '8px', fontWeight: 600 }}>📍 Proof: {g.coordinates.lat.toFixed(4)}, {g.coordinates.lng.toFixed(4)}</span>
+                                    )}
                                 </div>
                                 {g.imageUrl && (
                                     <div style={{ marginTop: '10px' }}>
@@ -147,7 +181,17 @@ export default function Grievances() {
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Evidence Image (Optional)</label>
-                                <input type="file" className="form-input" accept="image/*" onChange={(e) => setFile(e.target.files[0])} />
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <input type="file" className="form-input" accept="image/*" onChange={(e) => setFile(e.target.files[0])} />
+                                    <button type="button" className={`btn ${form.coordinates.lat ? 'btn-success' : 'btn-outline'}`} onClick={captureGPS} disabled={gpsLoading} style={{ whiteSpace: 'nowrap' }}>
+                                        {gpsLoading ? '...' : form.coordinates.lat ? '📍 GPS Added' : '📸 GPS Proof'}
+                                    </button>
+                                </div>
+                                {form.coordinates.lat && (
+                                    <div style={{ fontSize: '11px', color: 'var(--accent-green)', marginTop: '4px' }}>
+                                        Location Verified: {form.coordinates.lat.toFixed(6)}, {form.coordinates.lng.toFixed(6)}
+                                    </div>
+                                )}
                             </div>
                             <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
                                 <button type="submit" className="btn btn-primary">Submit</button>

@@ -5,7 +5,7 @@ const AuditLog = require('../models/AuditLog');
 const FundTransaction = require('../models/FundTransaction');
 const Project = require('../models/Project');
 const Department = require('../models/Department');
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -57,7 +57,7 @@ router.get('/chain', async (req, res) => {
 });
 
 // GET /api/audit/logs — audit logs (admin/auditor)
-router.get('/logs', protect, async (req, res) => {
+router.get('/logs', protect, authorize('admin', 'auditor'), async (req, res) => {
     try {
         const { page = 1, limit = 50, action, resourceType } = req.query;
         const filter = {};
@@ -123,6 +123,14 @@ router.get('/analytics', async (req, res) => {
             { $group: { _id: '$recordType', count: { $sum: 1 } } },
         ]);
 
+        // Budget change alerts (last 5)
+        const budgetAlerts = await AuditLog.find({
+            details: { $regex: 'BUDGET_CHANGE', $options: 'i' }
+        })
+        .populate('user', 'name')
+        .sort({ createdAt: -1 })
+        .limit(5);
+
         res.json({
             success: true,
             analytics: {
@@ -131,6 +139,7 @@ router.get('/analytics', async (req, res) => {
                 projectsByCategory: categoryStats,
                 monthlyFundFlow: monthlyFunds,
                 hashChainStats: chainStats,
+                budgetAlerts: budgetAlerts
             },
         });
     } catch (error) {

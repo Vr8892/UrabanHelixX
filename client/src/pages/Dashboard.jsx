@@ -18,6 +18,8 @@ export default function Dashboard() {
     const [recentProjects, setRecentProjects] = useState([]);
     const [analytics, setAnalytics] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [showAlert, setShowAlert] = useState(false);
+    const [budgetAlerts, setBudgetAlerts] = useState([]);
 
     useEffect(() => {
         loadData();
@@ -31,6 +33,11 @@ export default function Dashboard() {
             ]);
             setRecentProjects(projectRes.data.projects || []);
             setAnalytics(analyticsRes.data.analytics);
+            
+            if (analyticsRes.data.analytics?.budgetAlerts?.length > 0) {
+                setBudgetAlerts(analyticsRes.data.analytics.budgetAlerts);
+                setShowAlert(true);
+            }
 
             try {
                 const statsRes = await projectAPI.getStats();
@@ -67,6 +74,32 @@ export default function Dashboard() {
                     </div>
                 </div>
             </div>
+
+            {showAlert && (
+                <div className="budget-alert-popup">
+                    <div className="budget-alert-content">
+                        <div className="budget-alert-header">
+                            <span className="warning-icon">⚠️</span>
+                            <h3>Critical Budget Warning</h3>
+                            <button className="close-btn" onClick={() => setShowAlert(false)}>&times;</button>
+                        </div>
+                        <div className="budget-alert-body">
+                            <p>Significant changes in project estimated amounts have been detected:</p>
+                            <div className="alert-list">
+                                {budgetAlerts.map(alert => (
+                                    <div key={alert._id} className="alert-item">
+                                        <small>{new Date(alert.createdAt).toLocaleString()}</small>
+                                        <p>{alert.details.replace('BUDGET_CHANGE: ', '')}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="budget-alert-footer">
+                            <button className="view-details-btn" onClick={() => window.location.href='/audit'}>Audit Logs</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <SummaryCards stats={stats} />
 

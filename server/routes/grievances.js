@@ -44,6 +44,10 @@ router.post('/', protect, authorize('citizen', 'admin'), upload.single('image'),
             category,
         };
 
+        if (typeof req.body.coordinates === 'string') {
+            grievanceData.coordinates = JSON.parse(req.body.coordinates);
+        }
+
         if (req.file) {
             grievanceData.imageUrl = `/uploads/grievances/${req.file.filename}`;
         }

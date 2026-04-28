@@ -17,8 +17,33 @@ export default function Projects() {
     const [reportFile, setReportFile] = useState(null);
     const [form, setForm] = useState({
         title: '', description: '', category: 'road', estimatedBudget: '', department: '', priority: 'medium',
-        location: { ward: '', address: '' },
+        location: { ward: '', address: '', coordinates: { lat: null, lng: null } },
     });
+    const [gpsLoading, setGpsLoading] = useState(false);
+
+    const captureGPS = () => {
+        if (!navigator.geolocation) {
+            alert('Geolocation is not supported by your browser');
+            return;
+        }
+        setGpsLoading(true);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                setForm({
+                    ...form,
+                    location: {
+                        ...form.location,
+                        coordinates: { lat: pos.coords.latitude, lng: pos.coords.longitude }
+                    }
+                });
+                setGpsLoading(false);
+            },
+            (err) => {
+                alert('Unable to retrieve location: ' + err.message);
+                setGpsLoading(false);
+            }
+        );
+    };
 
     useEffect(() => { loadData(); }, [filter]);
 
@@ -284,7 +309,17 @@ export default function Projects() {
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Ward / Location</label>
-                                <input className="form-input" value={form.location.address} onChange={(e) => setForm({ ...form, location: { ...form.location, address: e.target.value } })} placeholder="e.g., Sector 12, Main Road" />
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <input className="form-input" value={form.location.address} onChange={(e) => setForm({ ...form, location: { ...form.location, address: e.target.value } })} placeholder="e.g., Sector 12, Main Road" />
+                                    <button type="button" className={`btn ${form.location.coordinates.lat ? 'btn-success' : 'btn-outline'}`} onClick={captureGPS} disabled={gpsLoading}>
+                                        {gpsLoading ? 'Capturing...' : form.location.coordinates.lat ? '📍 Location Proof Added' : '📸 GPS Proof'}
+                                    </button>
+                                </div>
+                                {form.location.coordinates.lat && (
+                                    <div style={{ fontSize: '11px', color: 'var(--accent-green)', marginTop: '4px' }}>
+                                        Verified Coordinates: {form.location.coordinates.lat.toFixed(6)}, {form.location.coordinates.lng.toFixed(6)}
+                                    </div>
+                                )}
                             </div>
                             <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
                                 <button type="submit" className="btn btn-primary">Submit Proposal</button>

@@ -9,11 +9,17 @@ const upload = require('../middleware/upload');
 
 const router = express.Router();
 
-// GET /api/projects — list all (public)
-router.get('/', async (req, res) => {
+// GET /api/projects — list all (public/filtered)
+router.get('/', protect, async (req, res) => {
     try {
         const { status, department, category, page = 1, limit = 20 } = req.query;
         const filter = {};
+        
+        // RBAC: Contractors only see assigned projects
+        if (req.user && req.user.role === 'contractor') {
+            filter.contractor = req.user._id;
+        }
+
         if (status) filter.status = status;
         if (department) filter.department = department;
         if (category) filter.category = category;
@@ -36,7 +42,7 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/projects/:id
-router.get('/:id', async (req, res) => {
+router.get('/:id', protect, async (req, res) => {
     try {
         const project = await Project.findById(req.params.id)
             .populate('department', 'name ward')
@@ -46,6 +52,11 @@ router.get('/:id', async (req, res) => {
             .populate('statusHistory.changedBy', 'name role');
 
         if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+
+        // RBAC: Contractors only see assigned projects
+        if (req.user.role === 'contractor' && project.contractor?._id.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ success: false, message: 'Not authorized to view this project' });
+        }
 
         res.json({ success: true, project });
     } catch (error) {
@@ -66,6 +77,11 @@ router.post('/', protect, authorize('citizen', 'engineer', 'admin'), upload.fiel
                 remarks: 'Project proposed',
             }],
         };
+
+        // Parse stringified JSON fields
+        if (typeof req.body.location === 'string') {
+            projectData.location = JSON.parse(req.body.location);
+        }
 
         // Handle uploaded files
         if (req.files) {
@@ -140,11 +156,30 @@ router.put('/:id', protect, async (req, res) => {
 
         // Update fields (excluding sensitive once handled by specific routes)
         const allowedUpdates = ['title', 'description', 'category', 'estimatedBudget', 'location', 'priority'];
+        let budgetChanged = false;
+        let oldBudget = project.estimatedBudget;
+
         allowedUpdates.forEach(update => {
-            if (req.body[update] !== undefined) project[update] = req.body[update];
+            if (req.body[update] !== undefined) {
+                if (update === 'estimatedBudget' && Number(req.body[update]) !== project.estimatedBudget) {
+                    budgetChanged = true;
+                }
+                project[update] = req.body[update];
+            }
         });
 
         await project.save();
+
+        if (budgetChanged) {
+            await AuditLog.create({
+                user: req.user._id,
+                action: 'update',
+                resourceType: 'project',
+                resourceId: project._id,
+                details: `BUDGET_CHANGE: "${project.title}" estimated budget changed from ₹${oldBudget.toLocaleString()} to ₹${project.estimatedBudget.toLocaleString()}`,
+            });
+        }
+
         res.json({ success: true, project });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -290,6 +325,58 @@ router.put('/:id/status', protect, authorize('engineer', 'contractor', 'admin'),
         );
 
         res.json({ success: true, project });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// GET /api/projects/public/:id — no auth required, citizen-facing view
+router.get('/public/:id', async (req, res) => {
+    try {
+        const project = await Project.findById(req.params.id)
+            .populate('department', 'name ward')
+            .populate('proposedBy', 'name role')
+            .populate('engineer', 'name role')
+            .populate('contractor', 'name role')
+            .populate('statusHistory.changedBy', 'name role');
+
+        if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+
+        // Strip sensitive fields for public view
+        const publicProject = {
+            _id: project._id,
+            title: project.title,
+            description: project.description,
+            category: project.category,
+            priority: project.priority,
+            status: project.status,
+            department: project.department,
+            proposedBy: project.proposedBy ? { name: project.proposedBy.name, role: project.proposedBy.role } : null,
+            engineer: project.engineer ? { name: project.engineer.name, role: project.engineer.role } : null,
+            contractor: project.contractor ? { name: project.contractor.name } : null,
+            estimatedBudget: project.estimatedBudget,
+            allocatedBudget: project.allocatedBudget,
+            spentBudget: project.spentBudget,
+            location: project.location,
+            startDate: project.startDate,
+            expectedEndDate: project.expectedEndDate,
+            actualEndDate: project.actualEndDate,
+            imageUrl: project.imageUrl,
+            reportUrl: project.reportUrl,
+            transactionHash: project.transactionHash,
+            lastTransactionHash: project.lastTransactionHash,
+            statusHistory: (project.statusHistory || []).map(h => ({
+                status: h.status,
+                timestamp: h.timestamp,
+                remarks: h.remarks,
+                transactionHash: h.transactionHash,
+                changedBy: h.changedBy ? { name: h.changedBy.name, role: h.changedBy.role } : null,
+            })),
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt,
+        };
+
+        res.json({ success: true, project: publicProject });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

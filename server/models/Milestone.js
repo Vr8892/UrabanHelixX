@@ -19,6 +19,10 @@ const milestoneSchema = new mongoose.Schema({
         data: String, // Base64 encoded
         uploadedAt: { type: Date, default: Date.now },
     }],
+    coordinates: {
+        lat: { type: Number, default: null },
+        lng: { type: Number, default: null },
+    },
     engineerApproval: {
         approved: { type: Boolean, default: false },
         approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
