@@ -4,19 +4,26 @@ const path = require('path');
 
 class BlockchainService {
     constructor() {
-        this.provider = new ethers.JsonRpcProvider(process.env.BLOCKCHAIN_RPC_URL || 'http://127.0.0.1:8545');
-        this.wallet = new ethers.Wallet(
-            process.env.BLOCKCHAIN_PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80', // Hardhat Account #0
-            this.provider
-        );
+        this.isMock = process.env.MOCK_BLOCKCHAIN === 'true';
+        
+        if (!this.isMock) {
+            this.provider = new ethers.JsonRpcProvider(process.env.BLOCKCHAIN_RPC_URL || 'http://127.0.0.1:8545');
+            this.wallet = new ethers.Wallet(
+                process.env.BLOCKCHAIN_PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80', // Hardhat Account #0
+                this.provider
+            );
 
-        this.deploymentInfo = require('../config/deployments.json');
-        this.contracts = {};
+            this.deploymentInfo = require('../config/deployments.json');
+            this.contracts = {};
 
-        this._initializeContracts();
+            this._initializeContracts();
+        } else {
+            console.log('⚠️ Running in MOCK_BLOCKCHAIN mode. No real smart contract transactions will be made.');
+        }
     }
 
     _initializeContracts() {
+        if (this.isMock) return;
         const contractsToLoad = ['FundAllocation', 'ProjectRegistry', 'MilestonePayment'];
 
         contractsToLoad.forEach(name => {
@@ -26,9 +33,18 @@ class BlockchainService {
         });
     }
 
+    // --- Helper for Mock TX ---
+    _mockTx(prefix = '0x') {
+        return {
+            hash: prefix + Math.random().toString(16).substr(2, 40),
+            wait: async () => ({ status: 1 })
+        };
+    }
+
     // --- FundAllocation Functions ---
 
     async createBudget(deptId, deptName, totalBudget, fiscalYear) {
+        if (this.isMock) return await this._mockTx().wait();
         try {
             const tx = await this.contracts.FundAllocation.createBudget(
                 deptId,
@@ -44,6 +60,7 @@ class BlockchainService {
     }
 
     async allocateFund(deptId, amount, description) {
+        if (this.isMock) return await this._mockTx().wait();
         try {
             const tx = await this.contracts.FundAllocation.allocateFund(
                 deptId,
@@ -60,6 +77,7 @@ class BlockchainService {
     // --- ProjectRegistry Functions ---
 
     async createProject(mongoId, title, deptId, estimatedBudget, dataHash) {
+        if (this.isMock) return { hash: this._mockTx().hash, blockchainId: Math.floor(Math.random() * 1000) };
         try {
             const tx = await this.contracts.ProjectRegistry.createProject(
                 mongoId,
@@ -90,6 +108,7 @@ class BlockchainService {
     }
 
     async approveProject(blockchainId, allocatedBudget, remarks) {
+        if (this.isMock) return await this._mockTx().wait();
         try {
             const tx = await this.contracts.ProjectRegistry.approveProject(
                 blockchainId,
@@ -104,6 +123,7 @@ class BlockchainService {
     }
 
     async updateProjectStatus(blockchainId, newStatus, remarks) {
+        if (this.isMock) return await this._mockTx().wait();
         try {
             const statusMap = {
                 'proposed': 0,
@@ -130,6 +150,7 @@ class BlockchainService {
     // --- MilestonePayment Functions ---
 
     async submitMilestone(projBlockchainId, mongoId, title, amount, proofHash) {
+        if (this.isMock) return { hash: this._mockTx().hash, blockchainId: Math.floor(Math.random() * 1000) };
         try {
             const tx = await this.contracts.MilestonePayment.submitMilestone(
                 projBlockchainId,
@@ -159,6 +180,7 @@ class BlockchainService {
     }
 
     async engineerApproveMilestone(milestoneBlockchainId) {
+        if (this.isMock) return await this._mockTx().wait();
         try {
             const tx = await this.contracts.MilestonePayment.engineerApprove(milestoneBlockchainId);
             return await tx.wait();
@@ -169,6 +191,7 @@ class BlockchainService {
     }
 
     async financialApproveAndPay(milestoneBlockchainId, txRef) {
+        if (this.isMock) return await this._mockTx().wait();
         try {
             const tx = await this.contracts.MilestonePayment.financialApproveAndPay(
                 milestoneBlockchainId,
